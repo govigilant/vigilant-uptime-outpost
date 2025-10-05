@@ -1,0 +1,19 @@
+services:
+  outpost:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - VIGILANT_URL=${VIGILANT_URL:-http://vigilant.test}
+      - OUTPOST_SECRET=${OUTPOST_SECRET:-outpost-secret}
+      - REPLICA_ID={{.Task.Slot}}
+    network_mode: host
+    deploy:
+      replicas: 3
+    volumes:
+      - outpost-data:/var/lib/uptime-outpost
+
+volumes:
+  outpost-data:
+    driver: local

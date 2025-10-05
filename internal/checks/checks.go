@@ -8,18 +8,16 @@ import (
 )
 
 type Job struct {
-	ID          string            `json:"id"`
 	Type        string            `json:"type"`
 	Target      string            `json:"target"`
 	Method      string            `json:"method,omitempty"`
 	Headers     map[string]string `json:"headers,omitempty"`
 	Body        string            `json:"body,omitempty"`
-	TimeoutSec  int               `json:"timeout_seconds,omitempty"`
+	Timeout  int               `json:"timeout,omitempty"`
 	CallbackURL string            `json:"callback_url,omitempty"`
 }
 
 type Result struct {
-	ID         string              `json:"id"`
 	Outpost    registrar.Registration `json:"outpost"`
 	Type       string              `json:"type"`
 	Target     string              `json:"target"`
@@ -44,11 +42,9 @@ func (c *Checker) Run(ctx context.Context, job Job) Result {
 		return runHTTP(ctx, c.reg, job)
 	case "tcp":
 		return runTCP(ctx, c.reg, job)
-	case "icmp":
-		return runICMP(ctx, c.reg, job)
 	default:
 		return Result{
-			ID: job.ID, Outpost: c.reg, Type: job.Type, Target: job.Target,
+			Outpost: c.reg, Type: job.Type, Target: job.Target,
 			Error: "unknown check type",
 		}
 	}

@@ -100,14 +100,61 @@ func (s *Server) runCheck(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", 405)
 		return
 	}
-	var job checks.Job
-	if err := json.NewDecoder(r.Body).Decode(&job); err != nil {
+
+	var body json.RawMessage
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		http.Error(w, err.Error(), 400)
 		return
 	}
-	go func() {
-		res := s.checker.Run(context.Background(), job)
-		log.Printf("check result: %+v", res)
-	}()
-	w.WriteHeader(http.StatusAccepted)
+
+	// Try to parse as array first (batch request)
+	var jobs []checks.Job
+	if err := json.Unmarshal(body, &jobs); err == nil && len(jobs) > 0 {
+		// Handle batch request
+		results := s.runBatchChecks(r.Context(), jobs)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(results)
+		return
+	}
+
+	// Parse as single job
+	var job checks.Job
+	if err := json.Unmarshal(body, &job); err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+
+	// Run single check synchronously
+	result := s.checker.Run(r.Context(), job)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}
+
+func (s *Server) runBatchChecks(ctx context.Context, jobs []checks.Job) []checks.Result {
+	results := make([]checks.Result, len(jobs))
+	
+	// Use a channel to collect results from concurrent checks
+	type indexedResult struct {
+		index  int
+		result checks.Result
+	}
+	resultChan := make(chan indexedResult, len(jobs))
+
+	// Run all checks concurrently
+	for i, job := range jobs {
+		go func(idx int, j checks.Job) {
+			resultChan <- indexedResult{
+				index:  idx,
+				result: s.checker.Run(ctx, j),
+			}
+		}(i, job)
+	}
+
+	// Collect results
+	for range jobs {
+		ir := <-resultChan
+		results[ir.index] = ir.result
+	}
+
+	return results
 }

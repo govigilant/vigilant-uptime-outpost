@@ -26,6 +26,14 @@ func New(cfg *config.Config) *Registrar {
 	return &Registrar{cfg: cfg}
 }
 
+func (r *Registrar) Info() Registration {
+	return Registration{
+		IP:       r.cfg.IP,
+		Port:     r.cfg.Port,
+		Hostname: r.cfg.Hostname,
+	}
+}
+
 func (r *Registrar) Register(ctx context.Context) error {
 	if r.cfg.VigilantURL == "" {
 		log.Println("VIGILANT_URL not set, skipping registration")
@@ -64,4 +72,34 @@ func (r *Registrar) Register(ctx context.Context) error {
 			}
 		}
 	}
+}
+
+func (r *Registrar) Unregister(ctx context.Context) error {
+	if r.cfg.VigilantURL == "" {
+		log.Println("VIGILANT_URL not set, skipping unregistration")
+		return nil
+	}
+	log.Printf("unregistering from Vigilant at %s", r.cfg.VigilantURL)
+	url := strings.TrimRight(r.cfg.VigilantURL, "/") + "/api/v1/outposts/unregister"
+	body, _ := json.Marshal(Registration{
+		IP: r.cfg.IP, Port: r.cfg.Port,
+	})
+
+	req, _ := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	if r.cfg.OutpostSecret != "" {
+		req.Header.Set("Authorization", "Bearer "+r.cfg.OutpostSecret)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Printf("error unregistering from Vigilant at %s: %v", url, err)
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		log.Printf("error unregistering from Vigilant at %s: status %s", url, resp.Status)
+		return nil
+	}
+	log.Printf("unregistered from Vigilant at %s", url)
+	return nil
 }

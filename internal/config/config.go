@@ -1,15 +1,15 @@
 package config
 
 import (
-	"crypto/sha256"
-	"encoding/binary"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Config struct {
@@ -113,9 +113,8 @@ func getPort(hostname string) int {
 		}
 	}
 
-	hash := sha256.Sum256([]byte(hostname))
-	seed := binary.BigEndian.Uint64(hash[:8])
-	port := 1000 + int(seed%9001)
+	rand.Seed(time.Now().UnixNano())
+	port := 1000 + rand.Intn(9001)
 	return port
 }
 

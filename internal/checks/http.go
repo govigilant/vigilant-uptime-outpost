@@ -33,7 +33,7 @@ func runHTTP(ctx context.Context, reg registrar.Registration, job Job) Result {
 
 	ok := resp.StatusCode >= 200 && resp.StatusCode < 400
 	return Result{
-		ID: job.ID, Outpost: reg, Type: job.Type, Target: job.Target,
+		Outpost: reg, Type: job.Type, Target: job.Target,
 		OK: ok, LatencyMS: dur, StatusCode: resp.StatusCode,
 		Timestamp: time.Now().UTC(),
 	}
@@ -41,7 +41,7 @@ func runHTTP(ctx context.Context, reg registrar.Registration, job Job) Result {
 
 func fail(job Job, reg registrar.Registration, err error) Result {
 	return Result{
-		ID: job.ID, Outpost: reg, Type: job.Type, Target: job.Target,
+		Outpost: reg, Type: job.Type, Target: job.Target,
 		Error: err.Error(), Timestamp: time.Now().UTC(),
 	}
 }

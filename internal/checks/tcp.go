@@ -12,8 +12,8 @@ func runTCP(ctx context.Context, reg registrar.Registration, job Job) Result {
 	start := time.Now()
 	
 	timeout := 30 * time.Second
-	if job.TimeoutSec > 0 {
-		timeout = time.Duration(job.TimeoutSec) * time.Second
+	if job.Timeout > 0 {
+		timeout = time.Duration(job.Timeout) * time.Second
 	}
 	
 	dialer := &net.Dialer{
@@ -29,7 +29,6 @@ func runTCP(ctx context.Context, reg registrar.Registration, job Job) Result {
 	defer conn.Close()
 	
 	return Result{
-		ID:        job.ID,
 		Outpost:   reg,
 		Type:      job.Type,
 		Target:    job.Target,
