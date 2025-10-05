@@ -1,0 +1,162 @@
+package config
+
+import (
+	"crypto/sha256"
+	"encoding/binary"
+	"io"
+	"log"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+)
+
+type Config struct {
+	VigilantURL   string
+	IP            string
+	Port          int
+	Hostname      string
+	OutpostSecret string
+}
+
+func Load() *Config {
+	vigilantURL := os.Getenv("VIGILANT_URL")
+	outpostSecret := os.Getenv("OUTPOST_SECRET")
+	hostname := getHostname()
+	port := getPort(hostname)
+	ip := getPublicIP()
+
+	if ip == "" {
+		log.Printf("IP address could not be determined, exiting")
+		os.Exit(1)
+	}
+
+	log.Printf("Configuration: IP=%s, Port=%d, Hostname=%s, VigilantURL=%s",
+		ip, port, hostname, vigilantURL)
+
+	return &Config{
+		VigilantURL:   vigilantURL,
+		IP:            ip,
+		Port:          port,
+		Hostname:      hostname,
+		OutpostSecret: outpostSecret,
+	}
+}
+
+func getHostname() string {
+	containerName := getDockerContainerName()
+	if containerName != "" {
+		storeHostname(containerName)
+		return containerName
+	}
+
+	hostname, err := os.Hostname()
+	if err != nil {
+		log.Printf("failed to get system hostname: %v", err)
+		hostname = "unknown"
+	}
+	storeHostname(hostname)
+	return hostname
+}
+
+func getDockerContainerName() string {
+	if _, err := os.Stat("/.dockerenv"); err == nil {
+		hostname, err := os.Hostname()
+		if err == nil && hostname != "" {
+			return hostname
+		}
+	}
+
+	data, err := os.ReadFile("/proc/self/cgroup")
+	if err == nil {
+		lines := strings.Split(string(data), "\n")
+		for _, line := range lines {
+			if strings.Contains(line, "docker") {
+				parts := strings.Split(line, "/")
+				if len(parts) > 0 {
+					containerID := parts[len(parts)-1]
+					if containerID != "" && containerID != "docker" {
+						if len(containerID) > 12 {
+							return containerID[:12]
+						}
+						return containerID
+					}
+				}
+			}
+		}
+	}
+
+	return ""
+}
+
+func storeHostname(hostname string) {
+	dataDir := "/var/lib/uptime-outpost"
+	if err := os.MkdirAll(dataDir, 0755); err != nil {
+		dataDir = ".outpost-data"
+		if err := os.MkdirAll(dataDir, 0755); err != nil {
+			log.Printf("failed to create data directory: %v", err)
+			return
+		}
+	}
+
+	hostnameFile := filepath.Join(dataDir, "hostname")
+	if err := os.WriteFile(hostnameFile, []byte(hostname), 0644); err != nil {
+		log.Printf("failed to write hostname file: %v", err)
+	}
+}
+
+func getPort(hostname string) int {
+	if p := os.Getenv("PORT"); p != "" {
+		if parsed, err := strconv.Atoi(p); err == nil {
+			return parsed
+		}
+	}
+
+	hash := sha256.Sum256([]byte(hostname))
+	seed := binary.BigEndian.Uint64(hash[:8])
+	port := 1000 + int(seed%9001)
+	return port
+}
+
+func getPublicIP() string {
+	if ip := os.Getenv("IP"); ip != "" {
+		return ip
+	}
+
+	ipv4 := fetchPublicIP("https://api.ipify.org")
+	if ipv4 != "" && !strings.Contains(ipv4, ":") {
+		return ipv4
+	}
+	ipv6 := fetchPublicIP("https://api64.ipify.org")
+	if ipv6 != "" {
+		return ipv6
+	}
+
+	log.Printf("failed to get public IP")
+	return ""
+}
+
+func fetchPublicIP(url string) string {
+	resp, err := http.Get(url)
+	if err != nil {
+		log.Printf("failed to fetch IP from %s: %v", url, err)
+		return ""
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("unexpected status code from %s: %d", url, resp.StatusCode)
+		return ""
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("failed to read response from %s: %v", url, err)
+		return ""
+	}
+
+	ip := strings.TrimSpace(string(body))
+	log.Printf("fetched public IP: %s", ip)
+	return ip
+}
