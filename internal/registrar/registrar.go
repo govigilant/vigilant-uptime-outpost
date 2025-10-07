@@ -3,6 +3,7 @@ package registrar
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -11,6 +12,14 @@ import (
 
 	"vigilant-uptime-outpost/internal/config"
 )
+
+var httpClient = &http.Client{
+	Transport: &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+	},
+}
 
 type Registration struct {
 	IP       string `json:"ip"`
@@ -50,10 +59,11 @@ func (r *Registrar) Register(ctx context.Context) error {
 		log.Printf("attempting to register with Vigilant at %s", url)
 		req, _ := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("User-Agent", "Vigilant Bot")
 		if r.cfg.OutpostSecret != "" {
 			req.Header.Set("Authorization", "Bearer "+r.cfg.OutpostSecret)
 		}
-		resp, err := http.DefaultClient.Do(req)
+		resp, err := httpClient.Do(req)
 		if err == nil && resp.StatusCode < 300 {
 			resp.Body.Close()
 			log.Printf("registered with Vigilant at %s", url)
@@ -87,10 +97,11 @@ func (r *Registrar) Unregister(ctx context.Context) error {
 
 	req, _ := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "Vigilant Bot")
 	if r.cfg.OutpostSecret != "" {
 		req.Header.Set("Authorization", "Bearer "+r.cfg.OutpostSecret)
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		log.Printf("error unregistering from Vigilant at %s: %v", url, err)
 		return err

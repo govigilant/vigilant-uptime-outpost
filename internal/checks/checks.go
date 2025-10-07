@@ -21,7 +21,7 @@ type Result struct {
 	Outpost    registrar.Registration `json:"outpost"`
 	Type       string              `json:"type"`
 	Target     string              `json:"target"`
-	OK         bool                `json:"ok"`
+	Up         bool                `json:"up"`
 	LatencyMS  float64             `json:"latency_ms"`
 	StatusCode int                 `json:"status_code,omitempty"`
 	Error      string              `json:"error,omitempty"`

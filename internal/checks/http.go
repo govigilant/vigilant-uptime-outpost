@@ -2,12 +2,21 @@ package checks
 
 import (
 	"context"
+	"crypto/tls"
 	"net/http"
 	"strings"
 	"time"
 
 	"vigilant-uptime-outpost/internal/registrar"
 )
+
+var httpClient = &http.Client{
+	Transport: &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+	},
+}
 
 func runHTTP(ctx context.Context, reg registrar.Registration, job Job) Result {
 	start := time.Now()
@@ -20,21 +29,22 @@ func runHTTP(ctx context.Context, reg registrar.Registration, job Job) Result {
 	if err != nil {
 		return fail(job, reg, err)
 	}
+	req.Header.Set("User-Agent", "Vigilant Bot")
 	for k, v := range job.Headers {
 		req.Header.Set(k, v)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	dur := time.Since(start).Seconds() * 1000
 	if err != nil {
 		return fail(job, reg, err)
 	}
 	defer resp.Body.Close()
 
-	ok := resp.StatusCode >= 200 && resp.StatusCode < 400
+	up := resp.StatusCode >= 200 && resp.StatusCode < 400
 	return Result{
 		Outpost: reg, Type: job.Type, Target: job.Target,
-		OK: ok, LatencyMS: dur, StatusCode: resp.StatusCode,
+		Up: up, LatencyMS: dur, StatusCode: resp.StatusCode,
 		Timestamp: time.Now().UTC(),
 	}
 }

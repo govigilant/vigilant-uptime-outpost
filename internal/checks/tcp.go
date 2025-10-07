@@ -32,7 +32,7 @@ func runTCP(ctx context.Context, reg registrar.Registration, job Job) Result {
 		Outpost:   reg,
 		Type:      job.Type,
 		Target:    job.Target,
-		OK:        true,
+		Up:        true,
 		LatencyMS: dur,
 		Timestamp: time.Now().UTC(),
 	}
