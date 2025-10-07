@@ -27,8 +27,15 @@ type Registration struct {
 	Hostname string `json:"hostname"`
 }
 
+type RegistrationResponse struct {
+	Certificate     string `json:"certificate"`
+	PrivateKey      string `json:"private_key"`
+	RootCertificate string `json:"root_certificate"`
+}
+
 type Registrar struct {
-	cfg *config.Config
+	cfg      *config.Config
+	certData *RegistrationResponse
 }
 
 func New(cfg *config.Config) *Registrar {
@@ -41,6 +48,10 @@ func (r *Registrar) Info() Registration {
 		Port:     r.cfg.Port,
 		Hostname: r.cfg.Hostname,
 	}
+}
+
+func (r *Registrar) GetCertificates() *RegistrationResponse {
+	return r.certData
 }
 
 func (r *Registrar) Register(ctx context.Context) error {
@@ -65,6 +76,15 @@ func (r *Registrar) Register(ctx context.Context) error {
 		}
 		resp, err := httpClient.Do(req)
 		if err == nil && resp.StatusCode < 300 {
+			// Parse the response to get certificates
+			var regResp RegistrationResponse
+			if err := json.NewDecoder(resp.Body).Decode(&regResp); err != nil {
+				resp.Body.Close()
+				log.Printf("failed to parse registration response: %v", err)
+			} else {
+				r.certData = &regResp
+				log.Printf("received certificates from Vigilant")
+			}
 			resp.Body.Close()
 			log.Printf("registered with Vigilant at %s", url)
 			return nil

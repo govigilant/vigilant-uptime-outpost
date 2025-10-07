@@ -2,6 +2,7 @@ package httpserver
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"log"
 	"net"
@@ -35,7 +36,29 @@ func New(cfg *config.Config, c *checks.Checker, r *registrar.Registrar) *Server 
 }
 
 func (s *Server) Start() error {
-	log.Printf("listening on :%d", s.cfg.Port)
+	certData := s.registrar.GetCertificates()
+	
+	// If we have certificates, start HTTPS server
+	if certData != nil && certData.Certificate != "" && certData.PrivateKey != "" {
+		log.Printf("starting HTTPS server on :%d", s.cfg.Port)
+		
+		// Create certificate from PEM data
+		cert, err := tls.X509KeyPair([]byte(certData.Certificate), []byte(certData.PrivateKey))
+		if err != nil {
+			log.Printf("failed to load certificate: %v", err)
+			return err
+		}
+		
+		// Configure TLS
+		s.server.TLSConfig = &tls.Config{
+			Certificates: []tls.Certificate{cert},
+		}
+		
+		return s.server.ListenAndServeTLS("", "")
+	}
+	
+	// Fall back to HTTP if no certificates
+	log.Printf("starting HTTP server on :%d", s.cfg.Port)
 	return s.server.ListenAndServe()
 }
 
