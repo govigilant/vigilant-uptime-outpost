@@ -89,9 +89,11 @@ func (r *Registrar) Register(ctx context.Context) error {
 			log.Printf("registered with Vigilant at %s", url)
 			return nil
 		}
-		log.Printf("error registering with Vigilant at %s: %v %s", url, err, resp.Status)
 		if resp != nil {
+			log.Printf("error registering with Vigilant at %s: %v %s", url, err, resp.Status)
 			resp.Body.Close()
+		} else {
+			log.Printf("error registering with Vigilant at %s: %v", url, err)
 		}
 		select {
 		case <-ctx.Done():
