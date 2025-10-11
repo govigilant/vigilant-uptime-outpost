@@ -42,7 +42,12 @@ func main() {
 		}
 	}()
 
-	<-sig
+	select {
+	case <-sig:
+		log.Println("received shutdown signal")
+	case <-server.GetShutdownChan():
+		log.Println("inactivity timeout reached")
+	}
 	cancel()
 	
 	log.Println("shutting down outpost...")

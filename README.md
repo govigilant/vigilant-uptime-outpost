@@ -11,6 +11,10 @@ When the outpost starts, it will register itself with the Vigilant instance. It 
 The outpost will then start listening for incoming requests from Vigilant. When a request is received, it will perform the uptime check and return the result back to Vigilant.  
 These outposts are designed to be short-lived and can be destroyed and recreated at any time. When an outpost is destroyed, it will automatically unregister itself from Vigilant.
 
+### Auto-Restart
+
+The outpost includes an auto-restart mechanism for resource efficiency. If no check requests are received for one hour, the outpost will automatically shut down. Docker's restart policy (configured as `unless-stopped` in docker-compose.yml) will then start a new container, ensuring the service remains available when Vigilant does not send requests anymore.
+
 ### Security
 
 All communication between the outpost and Vigilant is done over HTTPS. Vigilant maintains a root CA certificate that is used to sign the outpost certificates.  
