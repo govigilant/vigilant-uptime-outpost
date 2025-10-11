@@ -25,6 +25,7 @@ type Server struct {
 	lastRequest   time.Time
 	lastRequestMu sync.RWMutex
 	shutdownChan  chan struct{}
+	shutdownOnce  sync.Once
 }
 
 func New(cfg *config.Config, c *checks.Checker, r *registrar.Registrar) *Server {
@@ -98,7 +99,7 @@ func (s *Server) monitorInactivity() {
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
 	
-	inactivityTimeout := 1 * time.Hour
+	inactivityTimeout := time.Duration(s.cfg.InactivityTimeoutMins) * time.Minute
 	
 	for range ticker.C {
 		s.lastRequestMu.RLock()
@@ -107,7 +108,9 @@ func (s *Server) monitorInactivity() {
 		
 		if time.Since(lastReq) > inactivityTimeout {
 			log.Printf("no requests received for %v, initiating shutdown for restart", inactivityTimeout)
-			close(s.shutdownChan)
+			s.shutdownOnce.Do(func() {
+				close(s.shutdownChan)
+			})
 			return
 		}
 	}

@@ -13,12 +13,26 @@ These outposts are designed to be short-lived and can be destroyed and recreated
 
 ### Auto-Restart
 
-The outpost includes an auto-restart mechanism for resource efficiency. If no check requests are received for one hour, the outpost will automatically shut down. Docker's restart policy (configured as `unless-stopped` in docker-compose.yml) will then start a new container, ensuring the service remains available when Vigilant does not send requests anymore.
+The outpost includes an auto-restart mechanism for resource efficiency. If no check requests are received for a configurable period (default: 60 minutes), the outpost will automatically shut down. Docker's restart policy (configured as `unless-stopped` in docker-compose.yml) will then start a new container, ensuring the service remains available when Vigilant does not send requests anymore.
+
+You can configure the inactivity timeout by setting the `INACTIVITY_TIMEOUT_MINS` environment variable in your `.env` file.
 
 ### Security
 
 All communication between the outpost and Vigilant is done over HTTPS. Vigilant maintains a root CA certificate that is used to sign the outpost certificates.  
 When the outpost registers itself with Vigilant, it will receive a signed certificate that it will use for all future communication.
+
+## Configuration
+
+The outpost is configured using environment variables. Create a `.env` file in the root directory with the following variables:
+
+- `VIGILANT_URL` (required): The URL of your Vigilant instance
+- `OUTPOST_SECRET` (required): The secret key used to authenticate with Vigilant
+- `INACTIVITY_TIMEOUT_MINS` (optional): Number of minutes of inactivity before auto-restart (default: 60)
+- `PORT` (optional): The port the outpost will listen on (default: randomly assigned between 1000-10000)
+- `IP` (optional): The public IP address of the outpost (default: auto-detected)
+
+See `.env.example` for a sample configuration file.
 
 ## Deployment
 
