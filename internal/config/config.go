@@ -13,11 +13,12 @@ import (
 )
 
 type Config struct {
-	VigilantURL   string
-	IP            string
-	Port          int
-	Hostname      string
-	OutpostSecret string
+	VigilantURL            string
+	IP                     string
+	Port                   int
+	Hostname               string
+	OutpostSecret          string
+	InactivityTimeoutMins  int
 }
 
 func Load() *Config {
@@ -26,21 +27,23 @@ func Load() *Config {
 	hostname := getHostname()
 	port := getPort(hostname)
 	ip := getPublicIP()
+	inactivityTimeoutMins := getInactivityTimeoutMins()
 
 	if ip == "" {
 		log.Printf("IP address could not be determined, exiting")
 		os.Exit(1)
 	}
 
-	log.Printf("Configuration: IP=%s, Port=%d, Hostname=%s, VigilantURL=%s",
-		ip, port, hostname, vigilantURL)
+	log.Printf("Configuration: IP=%s, Port=%d, Hostname=%s, VigilantURL=%s, InactivityTimeout=%dmins",
+		ip, port, hostname, vigilantURL, inactivityTimeoutMins)
 
 	return &Config{
-		VigilantURL:   vigilantURL,
-		IP:            ip,
-		Port:          port,
-		Hostname:      hostname,
-		OutpostSecret: outpostSecret,
+		VigilantURL:           vigilantURL,
+		IP:                    ip,
+		Port:                  port,
+		Hostname:              hostname,
+		OutpostSecret:         outpostSecret,
+		InactivityTimeoutMins: inactivityTimeoutMins,
 	}
 }
 
@@ -116,6 +119,15 @@ func getPort(hostname string) int {
 	rand.Seed(time.Now().UnixNano())
 	port := 1000 + rand.Intn(9001)
 	return port
+}
+
+func getInactivityTimeoutMins() int {
+	if t := os.Getenv("INACTIVITY_TIMEOUT_MINS"); t != "" {
+		if parsed, err := strconv.Atoi(t); err == nil && parsed > 0 {
+			return parsed
+		}
+	}
+	return 60 // Default to 60 minutes (1 hour)
 }
 
 func getPublicIP() string {

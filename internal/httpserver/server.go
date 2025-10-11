@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"vigilant-uptime-outpost/internal/checks"
@@ -17,17 +18,27 @@ import (
 )
 
 type Server struct {
-	cfg      *config.Config
-	checker  *checks.Checker
-	registrar *registrar.Registrar
-	server   *http.Server
+	cfg           *config.Config
+	checker       *checks.Checker
+	registrar     *registrar.Registrar
+	server        *http.Server
+	lastRequest   time.Time
+	lastRequestMu sync.RWMutex
+	shutdownChan  chan struct{}
+	shutdownOnce  sync.Once
 }
 
 func New(cfg *config.Config, c *checks.Checker, r *registrar.Registrar) *Server {
-	s := &Server{cfg: cfg, checker: c, registrar: r}
+	s := &Server{
+		cfg:          cfg,
+		checker:      c,
+		registrar:    r,
+		lastRequest:  time.Now(),
+		shutdownChan: make(chan struct{}),
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", s.localhostOnly(s.health))
-	mux.HandleFunc("/run-check", s.requireAuth(s.runCheck))
+	mux.HandleFunc("/run-check", s.requireAuth(s.trackActivity(s.runCheck)))
 	s.server = &http.Server{
 		Addr:    ":" + strconv.Itoa(cfg.Port),
 		Handler: mux,
@@ -37,6 +48,9 @@ func New(cfg *config.Config, c *checks.Checker, r *registrar.Registrar) *Server 
 
 func (s *Server) Start() error {
 	certData := s.registrar.GetCertificates()
+	
+	// Start inactivity monitor
+	go s.monitorInactivity()
 	
 	// If we have certificates, start HTTPS server
 	if certData != nil && certData.Certificate != "" && certData.PrivateKey != "" {
@@ -66,6 +80,40 @@ func (s *Server) Stop() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	s.server.Shutdown(ctx)
+}
+
+func (s *Server) GetShutdownChan() <-chan struct{} {
+	return s.shutdownChan
+}
+
+func (s *Server) trackActivity(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		s.lastRequestMu.Lock()
+		s.lastRequest = time.Now()
+		s.lastRequestMu.Unlock()
+		next(w, r)
+	}
+}
+
+func (s *Server) monitorInactivity() {
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+	
+	inactivityTimeout := time.Duration(s.cfg.InactivityTimeoutMins) * time.Minute
+	
+	for range ticker.C {
+		s.lastRequestMu.RLock()
+		lastReq := s.lastRequest
+		s.lastRequestMu.RUnlock()
+		
+		if time.Since(lastReq) > inactivityTimeout {
+			log.Printf("no requests received for %v, initiating shutdown for restart", inactivityTimeout)
+			s.shutdownOnce.Do(func() {
+				close(s.shutdownChan)
+			})
+			return
+		}
+	}
 }
 
 func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
