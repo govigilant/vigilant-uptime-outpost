@@ -246,11 +246,12 @@ const (
 )
 
 type tlsErrorLogWriter struct {
-	server      *Server
-	target      io.Writer
-	mu          sync.Mutex
-	failures    int
-	windowStart time.Time
+	server           *Server
+	target           io.Writer
+	mu               sync.Mutex
+	failures         int
+	windowStart      time.Time
+	restartTriggered bool
 }
 
 func newTLSErrorLogWriter(server *Server, target io.Writer) *tlsErrorLogWriter {
@@ -275,6 +276,11 @@ func (w *tlsErrorLogWriter) shouldTriggerRestart(p []byte) bool {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
+	// Prevent triggering restart multiple times during asynchronous shutdown
+	if w.restartTriggered {
+		return false
+	}
+
 	now := time.Now()
 	if w.windowStart.IsZero() || now.Sub(w.windowStart) > tlsErrorWindow {
 		w.windowStart = now
@@ -285,6 +291,7 @@ func (w *tlsErrorLogWriter) shouldTriggerRestart(p []byte) bool {
 	if w.failures >= tlsErrorThreshold {
 		w.windowStart = now
 		w.failures = 0
+		w.restartTriggered = true
 		return true
 	}
 
