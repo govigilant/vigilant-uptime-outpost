@@ -1,12 +1,15 @@
 package httpserver
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"io"
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -39,38 +42,40 @@ func New(cfg *config.Config, c *checks.Checker, r *registrar.Registrar) *Server 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", s.localhostOnly(s.health))
 	mux.HandleFunc("/run-check", s.requireAuth(s.trackActivity(s.runCheck)))
+	errorWriter := newTLSErrorLogWriter(s, os.Stderr)
 	s.server = &http.Server{
-		Addr:    ":" + strconv.Itoa(cfg.Port),
-		Handler: mux,
+		Addr:     ":" + strconv.Itoa(cfg.Port),
+		Handler:  mux,
+		ErrorLog: log.New(errorWriter, "", log.LstdFlags),
 	}
 	return s
 }
 
 func (s *Server) Start() error {
 	certData := s.registrar.GetCertificates()
-	
+
 	// Start inactivity monitor
 	go s.monitorInactivity()
-	
+
 	// If we have certificates, start HTTPS server
 	if certData != nil && certData.Certificate != "" && certData.PrivateKey != "" {
 		log.Printf("starting HTTPS server on :%d", s.cfg.Port)
-		
+
 		// Create certificate from PEM data
 		cert, err := tls.X509KeyPair([]byte(certData.Certificate), []byte(certData.PrivateKey))
 		if err != nil {
 			log.Printf("failed to load certificate: %v", err)
 			return err
 		}
-		
+
 		// Configure TLS
 		s.server.TLSConfig = &tls.Config{
 			Certificates: []tls.Certificate{cert},
 		}
-		
+
 		return s.server.ListenAndServeTLS("", "")
 	}
-	
+
 	// Fall back to HTTP if no certificates
 	log.Printf("starting HTTP server on :%d", s.cfg.Port)
 	return s.server.ListenAndServe()
@@ -86,6 +91,13 @@ func (s *Server) GetShutdownChan() <-chan struct{} {
 	return s.shutdownChan
 }
 
+func (s *Server) requestShutdown(reason string) {
+	s.shutdownOnce.Do(func() {
+		log.Println(reason)
+		close(s.shutdownChan)
+	})
+}
+
 func (s *Server) trackActivity(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		s.lastRequestMu.Lock()
@@ -98,19 +110,16 @@ func (s *Server) trackActivity(next http.HandlerFunc) http.HandlerFunc {
 func (s *Server) monitorInactivity() {
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
-	
+
 	inactivityTimeout := time.Duration(s.cfg.InactivityTimeoutMins) * time.Minute
-	
+
 	for range ticker.C {
 		s.lastRequestMu.RLock()
 		lastReq := s.lastRequest
 		s.lastRequestMu.RUnlock()
-		
+
 		if time.Since(lastReq) > inactivityTimeout {
-			log.Printf("no requests received for %v, initiating shutdown for restart", inactivityTimeout)
-			s.shutdownOnce.Do(func() {
-				close(s.shutdownChan)
-			})
+			s.requestShutdown("no requests received for " + inactivityTimeout.String() + ", initiating shutdown for restart")
 			return
 		}
 	}
@@ -203,7 +212,7 @@ func (s *Server) runCheck(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) runBatchChecks(ctx context.Context, jobs []checks.Job) []checks.Result {
 	results := make([]checks.Result, len(jobs))
-	
+
 	// Use a channel to collect results from concurrent checks
 	type indexedResult struct {
 		index  int
@@ -228,4 +237,56 @@ func (s *Server) runBatchChecks(ctx context.Context, jobs []checks.Job) []checks
 	}
 
 	return results
+}
+
+const (
+	badRecordMACError = "tls: bad record MAC"
+	tlsErrorThreshold = 3
+	tlsErrorWindow    = 30 * time.Second
+)
+
+type tlsErrorLogWriter struct {
+	server      *Server
+	target      io.Writer
+	mu          sync.Mutex
+	failures    int
+	windowStart time.Time
+}
+
+func newTLSErrorLogWriter(server *Server, target io.Writer) *tlsErrorLogWriter {
+	if target == nil {
+		target = io.Discard
+	}
+	return &tlsErrorLogWriter{server: server, target: target}
+}
+
+func (w *tlsErrorLogWriter) Write(p []byte) (int, error) {
+	if w.shouldTriggerRestart(p) {
+		w.server.requestShutdown("detected repeated TLS handshake failures (bad record MAC), requesting restart")
+	}
+	return w.target.Write(p)
+}
+
+func (w *tlsErrorLogWriter) shouldTriggerRestart(p []byte) bool {
+	if !bytes.Contains(p, []byte(badRecordMACError)) {
+		return false
+	}
+
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	now := time.Now()
+	if w.windowStart.IsZero() || now.Sub(w.windowStart) > tlsErrorWindow {
+		w.windowStart = now
+		w.failures = 0
+	}
+
+	w.failures++
+	if w.failures >= tlsErrorThreshold {
+		w.windowStart = now
+		w.failures = 0
+		return true
+	}
+
+	return false
 }
