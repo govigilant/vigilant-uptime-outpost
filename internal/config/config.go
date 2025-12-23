@@ -18,8 +18,8 @@ type Config struct {
 	Port                  int
 	Hostname              string
 	Country               string
-	Latitude              string
-	Longitude             string
+	Latitude              float64
+	Longitude             float64
 	OutpostSecret         string
 	InactivityTimeoutMins int
 }
@@ -32,15 +32,15 @@ func Load() *Config {
 	ip := getPublicIP()
 	inactivityTimeoutMins := getInactivityTimeoutMins()
 	country := strings.TrimSpace(os.Getenv("COUNTRY"))
-	latitude := strings.TrimSpace(os.Getenv("LATITUDE"))
-	longitude := strings.TrimSpace(os.Getenv("LONGITUDE"))
+	latitude := getLatitude()
+	longitude := getLongitude()
 
 	if ip == "" {
 		log.Printf("IP address could not be determined, exiting")
 		os.Exit(1)
 	}
 
-	log.Printf("Configuration: IP=%s, Port=%d, Hostname=%s, VigilantURL=%s, Country=%s, Latitude=%s, Longitude=%s, InactivityTimeout=%dmins",
+	log.Printf("Configuration: IP=%s, Port=%d, Hostname=%s, VigilantURL=%s, Country=%s, Latitude=%f, Longitude=%f, InactivityTimeout=%dmins",
 		ip, port, hostname, vigilantURL, country, latitude, longitude, inactivityTimeoutMins)
 
 	return &Config{
@@ -137,6 +137,30 @@ func getInactivityTimeoutMins() int {
 		}
 	}
 	return 60 // Default to 60 minutes (1 hour)
+}
+
+func getLatitude() float64 {
+	if lat := strings.TrimSpace(os.Getenv("LATITUDE")); lat != "" {
+		if parsed, err := strconv.ParseFloat(lat, 64); err == nil {
+			if parsed >= -90 && parsed <= 90 {
+				return parsed
+			}
+			log.Printf("invalid latitude value %f, must be between -90 and 90", parsed)
+		}
+	}
+	return 0
+}
+
+func getLongitude() float64 {
+	if lon := strings.TrimSpace(os.Getenv("LONGITUDE")); lon != "" {
+		if parsed, err := strconv.ParseFloat(lon, 64); err == nil {
+			if parsed >= -180 && parsed <= 180 {
+				return parsed
+			}
+			log.Printf("invalid longitude value %f, must be between -180 and 180", parsed)
+		}
+	}
+	return 0
 }
 
 func getPublicIP() string {
