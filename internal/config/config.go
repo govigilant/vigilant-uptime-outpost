@@ -20,6 +20,8 @@ type Config struct {
 	Country               string
 	Latitude              float64
 	Longitude             float64
+	HasLatitude           bool
+	HasLongitude          bool
 	OutpostSecret         string
 	InactivityTimeoutMins int
 }
@@ -32,8 +34,8 @@ func Load() *Config {
 	ip := getPublicIP()
 	inactivityTimeoutMins := getInactivityTimeoutMins()
 	country := strings.TrimSpace(os.Getenv("COUNTRY"))
-	latitude := getLatitude()
-	longitude := getLongitude()
+	latitude, hasLatitude := getLatitude()
+	longitude, hasLongitude := getLongitude()
 
 	if ip == "" {
 		log.Printf("IP address could not be determined, exiting")
@@ -51,6 +53,8 @@ func Load() *Config {
 		Country:               country,
 		Latitude:              latitude,
 		Longitude:             longitude,
+		HasLatitude:           hasLatitude,
+		HasLongitude:          hasLongitude,
 		OutpostSecret:         outpostSecret,
 		InactivityTimeoutMins: inactivityTimeoutMins,
 	}
@@ -139,28 +143,32 @@ func getInactivityTimeoutMins() int {
 	return 60 // Default to 60 minutes (1 hour)
 }
 
-func getLatitude() float64 {
+func getLatitude() (float64, bool) {
 	if lat := strings.TrimSpace(os.Getenv("LATITUDE")); lat != "" {
 		if parsed, err := strconv.ParseFloat(lat, 64); err == nil {
 			if parsed >= -90 && parsed <= 90 {
-				return parsed
+				return parsed, true
 			}
 			log.Printf("invalid latitude value %f, must be between -90 and 90", parsed)
+		} else {
+			log.Printf("failed to parse LATITUDE environment variable: %v", err)
 		}
 	}
-	return 0
+	return 0, false
 }
 
-func getLongitude() float64 {
+func getLongitude() (float64, bool) {
 	if lon := strings.TrimSpace(os.Getenv("LONGITUDE")); lon != "" {
 		if parsed, err := strconv.ParseFloat(lon, 64); err == nil {
 			if parsed >= -180 && parsed <= 180 {
-				return parsed
+				return parsed, true
 			}
 			log.Printf("invalid longitude value %f, must be between -180 and 180", parsed)
+		} else {
+			log.Printf("failed to parse LONGITUDE environment variable: %v", err)
 		}
 	}
-	return 0
+	return 0, false
 }
 
 func getPublicIP() string {

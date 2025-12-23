@@ -74,10 +74,10 @@ func (r *Registrar) Register(ctx context.Context) error {
 	if r.cfg.Country != "" {
 		registration.Country = r.cfg.Country
 	}
-	if r.cfg.Latitude != 0 {
+	if r.cfg.HasLatitude {
 		registration.Latitude = r.cfg.Latitude
 	}
-	if r.cfg.Longitude != 0 {
+	if r.cfg.HasLongitude {
 		registration.Longitude = r.cfg.Longitude
 	}
 	body, _ := json.Marshal(registration)
