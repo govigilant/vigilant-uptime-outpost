@@ -80,7 +80,11 @@ func (r *Registrar) Register(ctx context.Context) error {
 	if r.cfg.HasLongitude {
 		registration.Longitude = r.cfg.Longitude
 	}
-	body, _ := json.Marshal(registration)
+	body, err := json.Marshal(registration)
+	if err != nil {
+		log.Printf("failed to marshal registration: %v", err)
+		return err
+	}
 
 	backoff := time.Second
 	for {
