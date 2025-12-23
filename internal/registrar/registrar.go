@@ -22,9 +22,12 @@ var httpClient = &http.Client{
 }
 
 type Registration struct {
-	IP       string `json:"ip"`
-	Port     int    `json:"port"`
-	Hostname string `json:"hostname"`
+	IP        string  `json:"ip"`
+	Port      int     `json:"port"`
+	Hostname  string  `json:"hostname"`
+	Country   string  `json:"country,omitempty"`
+	Latitude  float64 `json:"latitude,omitempty"`
+	Longitude float64 `json:"longitude,omitempty"`
 }
 
 type RegistrationResponse struct {
@@ -44,9 +47,12 @@ func New(cfg *config.Config) *Registrar {
 
 func (r *Registrar) Info() Registration {
 	return Registration{
-		IP:       r.cfg.IP,
-		Port:     r.cfg.Port,
-		Hostname: r.cfg.Hostname,
+		IP:        r.cfg.IP,
+		Port:      r.cfg.Port,
+		Hostname:  r.cfg.Hostname,
+		Country:   r.cfg.Country,
+		Latitude:  r.cfg.Latitude,
+		Longitude: r.cfg.Longitude,
 	}
 }
 
@@ -61,9 +67,14 @@ func (r *Registrar) Register(ctx context.Context) error {
 	}
 	log.Printf("registering with Vigilant at %s", r.cfg.VigilantURL)
 	url := strings.TrimRight(r.cfg.VigilantURL, "/") + "/api/v1/outposts/register"
-	body, _ := json.Marshal(Registration{
-		IP: r.cfg.IP, Port: r.cfg.Port,
-	})
+	registration := Registration{
+		IP:        r.cfg.IP,
+		Port:      r.cfg.Port,
+		Country:   r.cfg.Country,
+		Latitude:  r.cfg.Latitude,
+		Longitude: r.cfg.Longitude,
+	}
+	body, _ := json.Marshal(registration)
 
 	backoff := time.Second
 	for {

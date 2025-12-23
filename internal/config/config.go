@@ -13,12 +13,15 @@ import (
 )
 
 type Config struct {
-	VigilantURL            string
-	IP                     string
-	Port                   int
-	Hostname               string
-	OutpostSecret          string
-	InactivityTimeoutMins  int
+	VigilantURL           string
+	IP                    string
+	Port                  int
+	Hostname              string
+	Country               string
+	Latitude              float64
+	Longitude             float64
+	OutpostSecret         string
+	InactivityTimeoutMins int
 }
 
 func Load() *Config {
@@ -28,20 +31,44 @@ func Load() *Config {
 	port := getPort(hostname)
 	ip := getPublicIP()
 	inactivityTimeoutMins := getInactivityTimeoutMins()
+	country := strings.TrimSpace(os.Getenv("COUNTRY"))
+	latitudeStr := strings.TrimSpace(os.Getenv("LATITUDE"))
+	longitudeStr := strings.TrimSpace(os.Getenv("LONGITUDE"))
+
+	var latitude float64
+	if latitudeStr != "" {
+		if parsed, err := strconv.ParseFloat(latitudeStr, 64); err != nil {
+			log.Printf("invalid LATITUDE value %q: %v", latitudeStr, err)
+		} else {
+			latitude = parsed
+		}
+	}
+
+	var longitude float64
+	if longitudeStr != "" {
+		if parsed, err := strconv.ParseFloat(longitudeStr, 64); err != nil {
+			log.Printf("invalid LONGITUDE value %q: %v", longitudeStr, err)
+		} else {
+			longitude = parsed
+		}
+	}
 
 	if ip == "" {
 		log.Printf("IP address could not be determined, exiting")
 		os.Exit(1)
 	}
 
-	log.Printf("Configuration: IP=%s, Port=%d, Hostname=%s, VigilantURL=%s, InactivityTimeout=%dmins",
-		ip, port, hostname, vigilantURL, inactivityTimeoutMins)
+	log.Printf("Configuration: IP=%s, Port=%d, Hostname=%s, VigilantURL=%s, Country=%s, Latitude=%f, Longitude=%f, InactivityTimeout=%dmins",
+		ip, port, hostname, vigilantURL, country, latitude, longitude, inactivityTimeoutMins)
 
 	return &Config{
 		VigilantURL:           vigilantURL,
 		IP:                    ip,
 		Port:                  port,
 		Hostname:              hostname,
+		Country:               country,
+		Latitude:              latitude,
+		Longitude:             longitude,
 		OutpostSecret:         outpostSecret,
 		InactivityTimeoutMins: inactivityTimeoutMins,
 	}

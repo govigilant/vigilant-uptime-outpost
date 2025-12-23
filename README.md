@@ -31,6 +31,9 @@ The outpost is configured using environment variables. Create a `.env` file in t
 - `INACTIVITY_TIMEOUT_MINS` (optional): Number of minutes of inactivity before auto-restart (default: 60)
 - `PORT` (optional): The port the outpost will listen on (default: randomly assigned between 1000-10000)
 - `IP` (optional): The public IP address of the outpost (default: auto-detected)
+- `COUNTRY` (optional): The country associated with this outpost
+- `LATITUDE` (optional): The latitude coordinate for this outpost
+- `LONGITUDE` (optional): The longitude coordinate for this outpost
 
 See `.env.example` for a sample configuration file.
 
