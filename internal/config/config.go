@@ -13,12 +13,15 @@ import (
 )
 
 type Config struct {
-	VigilantURL            string
-	IP                     string
-	Port                   int
-	Hostname               string
-	OutpostSecret          string
-	InactivityTimeoutMins  int
+	VigilantURL           string
+	IP                    string
+	Port                  int
+	Hostname              string
+	Country               string
+	Latitude              string
+	Longitude             string
+	OutpostSecret         string
+	InactivityTimeoutMins int
 }
 
 func Load() *Config {
@@ -28,20 +31,26 @@ func Load() *Config {
 	port := getPort(hostname)
 	ip := getPublicIP()
 	inactivityTimeoutMins := getInactivityTimeoutMins()
+	country := strings.TrimSpace(os.Getenv("COUNTRY"))
+	latitude := strings.TrimSpace(os.Getenv("LATITUDE"))
+	longitude := strings.TrimSpace(os.Getenv("LONGITUDE"))
 
 	if ip == "" {
 		log.Printf("IP address could not be determined, exiting")
 		os.Exit(1)
 	}
 
-	log.Printf("Configuration: IP=%s, Port=%d, Hostname=%s, VigilantURL=%s, InactivityTimeout=%dmins",
-		ip, port, hostname, vigilantURL, inactivityTimeoutMins)
+	log.Printf("Configuration: IP=%s, Port=%d, Hostname=%s, VigilantURL=%s, Country=%s, Latitude=%s, Longitude=%s, InactivityTimeout=%dmins",
+		ip, port, hostname, vigilantURL, country, latitude, longitude, inactivityTimeoutMins)
 
 	return &Config{
 		VigilantURL:           vigilantURL,
 		IP:                    ip,
 		Port:                  port,
 		Hostname:              hostname,
+		Country:               country,
+		Latitude:              latitude,
+		Longitude:             longitude,
 		OutpostSecret:         outpostSecret,
 		InactivityTimeoutMins: inactivityTimeoutMins,
 	}
