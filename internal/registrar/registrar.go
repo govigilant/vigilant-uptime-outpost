@@ -22,12 +22,12 @@ var httpClient = &http.Client{
 }
 
 type Registration struct {
-	IP        string `json:"ip"`
-	Port      int    `json:"port"`
-	Hostname  string `json:"hostname"`
-	Country   string `json:"country,omitempty"`
-	Latitude  string `json:"latitude,omitempty"`
-	Longitude string `json:"longitude,omitempty"`
+	IP        string  `json:"ip"`
+	Port      int     `json:"port"`
+	Hostname  string  `json:"hostname"`
+	Country   string  `json:"country,omitempty"`
+	Latitude  float64 `json:"latitude,omitempty"`
+	Longitude float64 `json:"longitude,omitempty"`
 }
 
 type RegistrationResponse struct {
