@@ -18,8 +18,8 @@ type Config struct {
 	Port                  int
 	Hostname              string
 	Country               string
-	Latitude              string
-	Longitude             string
+	Latitude              float64
+	Longitude             float64
 	OutpostSecret         string
 	InactivityTimeoutMins int
 }
@@ -32,15 +32,33 @@ func Load() *Config {
 	ip := getPublicIP()
 	inactivityTimeoutMins := getInactivityTimeoutMins()
 	country := strings.TrimSpace(os.Getenv("COUNTRY"))
-	latitude := strings.TrimSpace(os.Getenv("LATITUDE"))
-	longitude := strings.TrimSpace(os.Getenv("LONGITUDE"))
+	latitudeStr := strings.TrimSpace(os.Getenv("LATITUDE"))
+	longitudeStr := strings.TrimSpace(os.Getenv("LONGITUDE"))
+
+	var latitude float64
+	if latitudeStr != "" {
+		if parsed, err := strconv.ParseFloat(latitudeStr, 64); err != nil {
+			log.Printf("invalid LATITUDE value %q: %v", latitudeStr, err)
+		} else {
+			latitude = parsed
+		}
+	}
+
+	var longitude float64
+	if longitudeStr != "" {
+		if parsed, err := strconv.ParseFloat(longitudeStr, 64); err != nil {
+			log.Printf("invalid LONGITUDE value %q: %v", longitudeStr, err)
+		} else {
+			longitude = parsed
+		}
+	}
 
 	if ip == "" {
 		log.Printf("IP address could not be determined, exiting")
 		os.Exit(1)
 	}
 
-	log.Printf("Configuration: IP=%s, Port=%d, Hostname=%s, VigilantURL=%s, Country=%s, Latitude=%s, Longitude=%s, InactivityTimeout=%dmins",
+	log.Printf("Configuration: IP=%s, Port=%d, Hostname=%s, VigilantURL=%s, Country=%s, Latitude=%f, Longitude=%f, InactivityTimeout=%dmins",
 		ip, port, hostname, vigilantURL, country, latitude, longitude, inactivityTimeoutMins)
 
 	return &Config{
