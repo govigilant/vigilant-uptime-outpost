@@ -68,17 +68,11 @@ func (r *Registrar) Register(ctx context.Context) error {
 	log.Printf("registering with Vigilant at %s", r.cfg.VigilantURL)
 	url := strings.TrimRight(r.cfg.VigilantURL, "/") + "/api/v1/outposts/register"
 	registration := Registration{
-		IP:   r.cfg.IP,
-		Port: r.cfg.Port,
-	}
-	if r.cfg.Country != "" {
-		registration.Country = r.cfg.Country
-	}
-	if r.cfg.Latitude != "" {
-		registration.Latitude = r.cfg.Latitude
-	}
-	if r.cfg.Longitude != "" {
-		registration.Longitude = r.cfg.Longitude
+		IP:        r.cfg.IP,
+		Port:      r.cfg.Port,
+		Country:   r.cfg.Country,
+		Latitude:  r.cfg.Latitude,
+		Longitude: r.cfg.Longitude,
 	}
 	body, _ := json.Marshal(registration)
 
