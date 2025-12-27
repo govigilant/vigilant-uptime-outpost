@@ -13,7 +13,7 @@ import (
 	"vigilant-uptime-outpost/internal/registrar"
 )
 
-var pingRTTRegex = regexp.MustCompile(`time[=:](\d+(?:\.\d+)?)\s*ms`)
+var pingRTTRegex = regexp.MustCompile(`time[=:]\s*(\d+(?:\.\d+)?)\s*ms`)
 
 func runICMP(ctx context.Context, reg registrar.Registration, job Job) Result {
 	target, err := sanitizePingTarget(job.Target)
