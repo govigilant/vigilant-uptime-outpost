@@ -20,10 +20,14 @@ type Job struct {
 const defaultTimeoutSeconds = 5
 
 func jobTimeoutDuration(job Job) time.Duration {
-	if job.Timeout > 0 {
-		return time.Duration(job.Timeout) * time.Second
+	if job.Timeout < 0 {
+		// Explicitly handle negative timeouts by falling back to the default.
+		return time.Duration(defaultTimeoutSeconds) * time.Second
 	}
-	return time.Duration(defaultTimeoutSeconds) * time.Second
+	if job.Timeout == 0 {
+		return time.Duration(defaultTimeoutSeconds) * time.Second
+	}
+	return time.Duration(job.Timeout) * time.Second
 }
 
 type Result struct {
