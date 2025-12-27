@@ -41,7 +41,7 @@ func runICMP(ctx context.Context, reg registrar.Registration, job Job) Result {
 	return Result{
 		Outpost:   reg,
 		Type:      job.Type,
-		Target:    job.Target,
+		Target:    target,
 		Up:        true,
 		LatencyMS: dur,
 		Timestamp: time.Now().UTC(),
