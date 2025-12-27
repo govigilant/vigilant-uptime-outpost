@@ -11,11 +11,8 @@ import (
 func runTCP(ctx context.Context, reg registrar.Registration, job Job) Result {
 	start := time.Now()
 	
-	timeout := 30 * time.Second
-	if job.Timeout > 0 {
-		timeout = time.Duration(job.Timeout) * time.Second
-	}
-	
+	timeout := jobTimeoutDuration(job)
+
 	dialer := &net.Dialer{
 		Timeout: timeout,
 	}
