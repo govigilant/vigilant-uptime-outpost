@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -12,9 +13,9 @@ import (
 	"vigilant-uptime-outpost/internal/registrar"
 )
 
-func runICMP(ctx context.Context, reg registrar.Registration, job Job) Result {
-	start := time.Now()
+var pingRTTRegex = regexp.MustCompile(`time[=:](\d+(?:\.\d+)?)\s*ms`)
 
+func runICMP(ctx context.Context, reg registrar.Registration, job Job) Result {
 	target, err := sanitizePingTarget(job.Target)
 	if err != nil {
 		return fail(job, reg, err)
@@ -28,7 +29,6 @@ func runICMP(ctx context.Context, reg registrar.Registration, job Job) Result {
 
 	cmd := exec.CommandContext(ctx, "ping", "-c", "1", "-w", strconv.Itoa(timeoutSeconds), target)
 	output, err := cmd.CombinedOutput()
-	dur := time.Since(start).Seconds() * 1000
 
 	if err != nil {
 		trimmed := strings.TrimSpace(string(output))
@@ -38,14 +38,28 @@ func runICMP(ctx context.Context, reg registrar.Registration, job Job) Result {
 		return fail(job, reg, err)
 	}
 
+	// Parse the actual RTT from ping output
+	latency, err := parseRTT(string(output))
+	if err != nil {
+		return fail(job, reg, fmt.Errorf("failed to parse ping RTT: %w", err))
+	}
+
 	return Result{
 		Outpost:   reg,
 		Type:      job.Type,
 		Target:    target,
 		Up:        true,
-		LatencyMS: dur,
+		LatencyMS: latency,
 		Timestamp: time.Now().UTC(),
 	}
+}
+
+func parseRTT(output string) (float64, error) {
+	matches := pingRTTRegex.FindStringSubmatch(output)
+	if len(matches) < 2 {
+		return 0, fmt.Errorf("RTT not found in ping output")
+	}
+	return strconv.ParseFloat(matches[1], 64)
 }
 
 func sanitizePingTarget(raw string) (string, error) {
