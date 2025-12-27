@@ -22,6 +22,20 @@ You can configure the inactivity timeout by setting the `INACTIVITY_TIMEOUT_MINS
 All communication between the outpost and Vigilant is done over HTTPS. Vigilant maintains a root CA certificate that is used to sign the outpost certificates.  
 When the outpost registers itself with Vigilant, it will receive a signed certificate that it will use for all future communication.
 
+## Run Check API
+
+The `/run-check` endpoint accepts either a single check object or an array of checks. All check types (`http`, `tcp`, and `icmp`) accept an optional `timeout` field (in seconds) that limits how long the individual check may run before it is canceled. When the field is omitted, the check automatically uses the default timeout of 5 seconds.
+
+Example single check payload:
+
+```
+{
+  "type": "http",
+  "target": "https://example.com",
+  "timeout": 10
+}
+```
+
 ## Configuration
 
 The outpost is configured using environment variables. Create a `.env` file in the root directory with the following variables:

@@ -25,7 +25,11 @@ func runHTTP(ctx context.Context, reg registrar.Registration, job Job) Result {
 		method = job.Method
 	}
 
-	req, err := http.NewRequestWithContext(ctx, method, job.Target, strings.NewReader(job.Body))
+	timeout := jobTimeoutDuration(job)
+	reqCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(reqCtx, method, job.Target, strings.NewReader(job.Body))
 	if err != nil {
 		return fail(job, reg, err)
 	}
