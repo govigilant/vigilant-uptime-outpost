@@ -8,13 +8,14 @@ import (
 )
 
 type Job struct {
-	Type        string            `json:"type"`
-	Target      string            `json:"target"`
-	Method      string            `json:"method,omitempty"`
-	Headers     map[string]string `json:"headers,omitempty"`
-	Body        string            `json:"body,omitempty"`
-	Timeout     int               `json:"timeout,omitempty"`
-	CallbackURL string            `json:"callback_url,omitempty"`
+	Type         string            `json:"type"`
+	Target       string            `json:"target"`
+	Method       string            `json:"method,omitempty"`
+	Headers      map[string]string `json:"headers,omitempty"`
+	Body         string            `json:"body,omitempty"`
+	Timeout      int               `json:"timeout,omitempty"`
+	CallbackURL  string            `json:"callback_url,omitempty"`
+	PingAttempts int               `json:"ping_attempts,omitempty"`
 }
 
 const defaultTimeoutSeconds = 5

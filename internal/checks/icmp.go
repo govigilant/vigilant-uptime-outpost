@@ -14,12 +14,19 @@ import (
 	"vigilant-uptime-outpost/internal/registrar"
 )
 
-const pingAttempts = 3
+const defaultPingAttempts = 3
 
 var (
 	pingRTTRegex     = regexp.MustCompile(`time[=:]\s*(\d+(?:\.\d+)?)\s*ms`)
 	pingSummaryRegex = regexp.MustCompile(`(?m)(?:rtt|round-trip)\s+min/avg/max/(?:mdev|stddev)\s*=\s*(\d+(?:\.\d+)?)/(\d+(?:\.\d+)?)/(\d+(?:\.\d+)?)/(\d+(?:\.\d+)?)\s*ms`)
 )
+
+func getPingAttempts(job Job) int {
+	if job.PingAttempts <= 0 {
+		return defaultPingAttempts
+	}
+	return job.PingAttempts
+}
 
 func runICMP(ctx context.Context, reg registrar.Registration, job Job) Result {
 	target, err := sanitizePingTarget(job.Target)
@@ -36,8 +43,9 @@ func runICMP(ctx context.Context, reg registrar.Registration, job Job) Result {
 	childCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	attempts := getPingAttempts(job)
 	var lastErr error
-	for attempt := 1; attempt <= pingAttempts; attempt++ {
+	for attempt := 1; attempt <= attempts; attempt++ {
 		latency, err := pingOnce(childCtx, target, timeoutSeconds, attempt)
 		if err == nil {
 			return Result{
