@@ -52,11 +52,7 @@ func runICMP(ctx context.Context, reg registrar.Registration, job Job) Result {
 		lastErr = err
 	}
 
-	if lastErr == nil {
-		lastErr = fmt.Errorf("all ping attempts failed")
-	} else {
-		lastErr = fmt.Errorf("all ping attempts failed: %w", lastErr)
-	}
+	lastErr = fmt.Errorf("all ping attempts failed: %w", lastErr)
 
 	log.Printf("icmp check failed for %s: %v", target, lastErr)
 	return fail(job, reg, lastErr)
