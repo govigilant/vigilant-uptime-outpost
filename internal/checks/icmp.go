@@ -101,7 +101,7 @@ func parseRTT(output string) (float64, error) {
 	for _, match := range matches {
 		val, err := strconv.ParseFloat(match[1], 64)
 		if err != nil {
-			return 0, err
+			return 0, fmt.Errorf("failed to parse RTT value %q: %w", match[1], err)
 		}
 		sum += val
 	}
