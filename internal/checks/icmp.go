@@ -9,7 +9,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"vigilant-uptime-outpost/internal/registrar"
@@ -37,67 +36,30 @@ func runICMP(ctx context.Context, reg registrar.Registration, job Job) Result {
 	childCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	type pingResult struct {
-		latency float64
-		err     error
-	}
-
-	results := make(chan pingResult, pingAttempts)
-	var wg sync.WaitGroup
-	wg.Add(pingAttempts)
-
-	for i := 0; i < pingAttempts; i++ {
-		attempt := i + 1
-		go func(attempt int) {
-			defer wg.Done()
-			latency, err := pingOnce(childCtx, target, timeoutSeconds, attempt)
-			results <- pingResult{latency: latency, err: err}
-		}(attempt)
-	}
-
-	go func() {
-		wg.Wait()
-		close(results)
-	}()
-
-	var (
-		sumLatencies float64
-		successCount int
-		firstErr     error
-	)
-
-	for res := range results {
-		if res.err != nil {
-			if firstErr == nil {
-				firstErr = res.err
+	var lastErr error
+	for attempt := 1; attempt <= pingAttempts; attempt++ {
+		latency, err := pingOnce(childCtx, target, timeoutSeconds, attempt)
+		if err == nil {
+			return Result{
+				Outpost:   reg,
+				Type:      job.Type,
+				Target:    target,
+				Up:        true,
+				LatencyMS: latency,
+				Timestamp: time.Now().UTC(),
 			}
-			continue
 		}
-		successCount++
-		sumLatencies += res.latency
+		lastErr = err
 	}
 
-	if firstErr != nil {
-		log.Printf("icmp check failed for %s: %v", target, firstErr)
-		return fail(job, reg, firstErr)
+	if lastErr == nil {
+		lastErr = fmt.Errorf("all ping attempts failed")
+	} else {
+		lastErr = fmt.Errorf("all ping attempts failed: %w", lastErr)
 	}
 
-	if successCount == 0 {
-		err := fmt.Errorf("all ping attempts failed")
-		log.Printf("icmp check failed for %s: %v", target, err)
-		return fail(job, reg, err)
-	}
-
-	avgLatency := sumLatencies / float64(successCount)
-
-	return Result{
-		Outpost:   reg,
-		Type:      job.Type,
-		Target:    target,
-		Up:        true,
-		LatencyMS: avgLatency,
-		Timestamp: time.Now().UTC(),
-	}
+	log.Printf("icmp check failed for %s: %v", target, lastErr)
+	return fail(job, reg, lastErr)
 }
 
 func pingOnce(ctx context.Context, target string, timeoutSeconds int, attempt int) (float64, error) {
