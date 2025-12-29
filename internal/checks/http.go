@@ -3,6 +3,7 @@ package checks
 import (
 	"context"
 	"crypto/tls"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -31,6 +32,7 @@ func runHTTP(ctx context.Context, reg registrar.Registration, job Job) Result {
 
 	req, err := http.NewRequestWithContext(reqCtx, method, job.Target, strings.NewReader(job.Body))
 	if err != nil {
+		log.Printf("http check request build failed for %s: %v", job.Target, err)
 		return fail(job, reg, err)
 	}
 	req.Header.Set("User-Agent", "Vigilant Bot")
@@ -41,6 +43,7 @@ func runHTTP(ctx context.Context, reg registrar.Registration, job Job) Result {
 	resp, err := httpClient.Do(req)
 	dur := time.Since(start).Seconds() * 1000
 	if err != nil {
+		log.Printf("http check failed for %s: %v", job.Target, err)
 		return fail(job, reg, err)
 	}
 	defer resp.Body.Close()

@@ -2,6 +2,7 @@ package checks
 
 import (
 	"context"
+	"log"
 	"net"
 	"time"
 
@@ -10,21 +11,22 @@ import (
 
 func runTCP(ctx context.Context, reg registrar.Registration, job Job) Result {
 	start := time.Now()
-	
+
 	timeout := jobTimeoutDuration(job)
 
 	dialer := &net.Dialer{
 		Timeout: timeout,
 	}
-	
+
 	conn, err := dialer.DialContext(ctx, "tcp", job.Target)
 	dur := time.Since(start).Seconds() * 1000
-	
+
 	if err != nil {
+		log.Printf("tcp check failed for %s: %v", job.Target, err)
 		return fail(job, reg, err)
 	}
 	defer conn.Close()
-	
+
 	return Result{
 		Outpost:   reg,
 		Type:      job.Type,
