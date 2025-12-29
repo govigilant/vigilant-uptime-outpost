@@ -70,7 +70,6 @@ func runICMP(ctx context.Context, reg registrar.Registration, job Job) Result {
 		if res.err != nil {
 			if firstErr == nil {
 				firstErr = res.err
-				cancel()
 			}
 			continue
 		}
