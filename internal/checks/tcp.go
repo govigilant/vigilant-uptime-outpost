@@ -17,9 +17,7 @@ func runTCP(ctx context.Context, reg registrar.Registration, job Job) Result {
 	tcpCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	dialer := &net.Dialer{
-		Timeout: timeout,
-	}
+	dialer := &net.Dialer{}
 
 	conn, err := dialer.DialContext(tcpCtx, "tcp", job.Target)
 	dur := time.Since(start).Seconds() * 1000
