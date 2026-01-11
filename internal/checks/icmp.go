@@ -33,11 +33,16 @@ func runICMP(ctx context.Context, reg registrar.Registration, job Job) Result {
 		timeoutSeconds = 1
 	}
 
-	childCtx, cancel := context.WithCancel(ctx)
+	childCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	var lastErr error
 	for attempt := 1; attempt <= pingAttempts; attempt++ {
+		if err := childCtx.Err(); err != nil {
+			lastErr = err
+			break
+		}
+
 		latency, err := pingOnce(childCtx, target, timeoutSeconds, attempt)
 		if err == nil {
 			return Result{
