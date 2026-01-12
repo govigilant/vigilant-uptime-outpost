@@ -14,11 +14,12 @@ func runTCP(ctx context.Context, reg registrar.Registration, job Job) Result {
 
 	timeout := jobTimeoutDuration(job)
 
-	dialer := &net.Dialer{
-		Timeout: timeout,
-	}
+	tcpCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 
-	conn, err := dialer.DialContext(ctx, "tcp", job.Target)
+	dialer := &net.Dialer{}
+
+	conn, err := dialer.DialContext(tcpCtx, "tcp", job.Target)
 	dur := time.Since(start).Seconds() * 1000
 
 	if err != nil {
